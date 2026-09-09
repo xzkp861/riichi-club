@@ -40,3 +40,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : '保存失败' }, { status: 500 })
   }
 }
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+
+    if (String(body.pin ?? '') !== process.env.ADMIN_PIN) {
+      return NextResponse.json(
+        { error: '管理员 PIN 错误' },
+        { status: 401 }
+      )
+    }
+
+    const supabase = createAdminClient()
+
+    const { error: resultError } = await supabase
+      .from('game_results')
+      .delete()
+      .eq('game_id', id)
+
+    if (resultError) throw resultError
+
+    const { error: gameError } = await supabase
+      .from('games')
+      .delete()
+      .eq('id', id)
+
+    if (gameError) throw gameError
+
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : '删除失败',
+      },
+      { status: 500 }
+    )
+  }
+}

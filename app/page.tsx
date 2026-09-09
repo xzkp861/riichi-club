@@ -27,7 +27,7 @@ export default async function HomePage() {
       rankSum: number
       firsts: number
       fourths: number
-      scoreSum: number
+      ptSum: number
     }
   >()
 
@@ -46,7 +46,7 @@ export default async function HomePage() {
         rankSum: 0,
         firsts: 0,
         fourths: 0,
-        scoreSum: 0,
+        ptSum: 0,
       })
     }
 
@@ -58,7 +58,7 @@ export default async function HomePage() {
     if (Number(r.rank) === 1) s.firsts += 1
     if (Number(r.rank) === 4) s.fourths += 1
 
-    s.scoreSum += Number(r.final_score)
+    s.ptSum += Number(r.final_score)
   }
 
   const leaderboard = [...stats.values()]
@@ -67,51 +67,70 @@ export default async function HomePage() {
       avgRank: s.games ? s.rankSum / s.games : 0,
       firstRate: s.games ? s.firsts / s.games : 0,
       fourthRate: s.games ? s.fourths / s.games : 0,
-      avgScore: s.games ? s.scoreSum / s.games : 0,
+      avgPt: s.games ? s.ptSum / s.games : 0,
     }))
-    .sort((a, b) => a.avgRank - b.avgRank)
+    // 主排行榜：累计 PT 从高到低
+    .sort((a, b) => b.ptSum - a.ptSum)
+
+  const formatPt = (value: number) => {
+    if (value > 0) return `+${value.toFixed(1)}`
+    return value.toFixed(1)
+  }
 
   return (
     <main>
-      <h1>排行榜</h1>
+      <h1>PT 排行榜</h1>
 
       <p className="muted">
-        按平均顺位排序。场次少时波动会比较大。
+        按累计 PT 排名，采用 M.LEAGUE 计分规则。
       </p>
 
       <div className="card">
         {leaderboard.length === 0 ? (
           <p className="muted">
-            还没有数据。先添加玩家并录入第一场。
+            还没有对局数据。先添加玩家并录入第一场。
           </p>
         ) : (
           <table>
             <thead>
               <tr>
+                <th>排名</th>
                 <th>玩家</th>
+                <th>PT</th>
                 <th>场次</th>
-                <th>平均顺位</th>
+                <th>均顺</th>
                 <th>一位率</th>
                 <th>四位率</th>
-                <th>平均积分</th>
-                <th>总积分</th>
+                <th>平均 PT</th>
               </tr>
             </thead>
 
             <tbody>
-              {leaderboard.map((p) => (
+              {leaderboard.map((p, index) => (
                 <tr key={p.id}>
-                  <td>{p.name}</td>
+                  <td>{index + 1}</td>
+
+                  <td>
+                    <strong>{p.name}</strong>
+                  </td>
+
+                  <td>
+                    <strong>{formatPt(p.ptSum)}</strong>
+                  </td>
+
                   <td>{p.games}</td>
+
                   <td>{p.avgRank.toFixed(2)}</td>
+
                   <td>
                     {(p.firstRate * 100).toFixed(1)}%
                   </td>
+
                   <td>
                     {(p.fourthRate * 100).toFixed(1)}%
                   </td>
-                  <td>{p.avgScore.toFixed(1)}</td>
-                  <td>{p.scoreSum.toFixed(1)}</td>
+
+                  <td>{formatPt(p.avgPt)}</td>
                 </tr>
               ))}
             </tbody>

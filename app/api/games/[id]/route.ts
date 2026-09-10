@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFinalScores } from '@/lib/scoring'
+import { recalculateRatings } from '@/lib/rating'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -58,12 +59,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       throw insertError
     }
 
+    await recalculateRatings()
     return NextResponse.json({ success: true })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : '修改失败' }, { status: 500 })
   }
 }
-
 
 export async function DELETE(
   request: Request,
@@ -74,28 +75,16 @@ export async function DELETE(
     const body = await request.json()
 
     if (String(body.pin ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json(
-        { error: '管理员 PIN 错误' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
     }
 
     const supabase = createAdminClient()
-
-    const { error: deleteError } = await supabase
-      .from('games')
-      .delete()
-      .eq('id', id)
-
+    const { error: deleteError } = await supabase.from('games').delete().eq('id', id)
     if (deleteError) throw deleteError
 
+    await recalculateRatings()
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json(
-      {
-        error: e instanceof Error ? e.message : '删除失败',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: e instanceof Error ? e.message : '删除失败' }, { status: 500 })
   }
 }

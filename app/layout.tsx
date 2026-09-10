@@ -3,7 +3,7 @@ import Link from 'next/link'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Riichi Club',
+  title: 'BOS RIICHI',
   description: '日麻战绩与积分统计',
 }
 
@@ -39,7 +39,7 @@ export default function RootLayout({
                 color: 'inherit',
               }}
             >
-              🀄 RIICHI CLUB
+              BOS RIICHI
             </Link>
 
             <div

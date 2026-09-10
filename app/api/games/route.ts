@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFinalScores } from '@/lib/scoring'
+import { recalculateRatings } from '@/lib/rating'
 
 export async function POST(request: Request) {
   let createdGameId: string | null = null
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
     }))
     const { error: resultError } = await supabase.from('game_results').insert(results)
     if (resultError) throw resultError
+
+    await recalculateRatings()
     return NextResponse.json({ success: true, gameId: game.id })
   } catch (e) {
     if (createdGameId) {
@@ -40,4 +43,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : '保存失败' }, { status: 500 })
   }
 }
-

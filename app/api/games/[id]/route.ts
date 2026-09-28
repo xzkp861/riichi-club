@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFinalScores } from '@/lib/scoring'
 import { recalculateRatings } from '@/lib/rating'
+import { requireOwner } from '@/lib/owner-auth'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,12 +23,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireOwner(request)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     const { id } = await params
     const body = await request.json()
-    if (String(body.pin ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
-    }
-
     const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(String) : []
     const scores = Array.isArray(body.scores) ? body.scores.map(Number) : []
     if (playerIds.length !== 4 || new Set(playerIds).size !== 4 || playerIds.some((x: string) => !x)) {
@@ -66,18 +66,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireOwner(request)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     const { id } = await params
-    const body = await request.json()
-
-    if (String(body.pin ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
-    }
-
     const supabase = createAdminClient()
     const { error: deleteError } = await supabase.from('games').delete().eq('id', id)
     if (deleteError) throw deleteError

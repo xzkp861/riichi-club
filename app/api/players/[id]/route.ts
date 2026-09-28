@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireOwner } from '@/lib/owner-auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireOwner(request)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     const { id } = await params
     const body = await request.json()
-    if (String(body.pin ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
-    }
     const name = String(body.name ?? '').trim()
     if (!name) return NextResponse.json({ error: '玩家名不能为空' }, { status: 400 })
 

@@ -1,12 +1,13 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { getOwnerAuthHeader } from '@/lib/supabase/browser'
 
 type Player = { id: string; name: string }
 
 export default function ManagePage() {
   const [players, setPlayers] = useState<Player[]>([])
-  const [pin, setPin] = useState('')
   const [message, setMessage] = useState('')
 
   async function load() {
@@ -14,18 +15,27 @@ export default function ManagePage() {
     const data = await res.json()
     setPlayers(data.players ?? [])
   }
+
   useEffect(() => { load() }, [])
 
   async function renamePlayer(id: string, currentName: string) {
     const name = window.prompt('新的玩家名', currentName)?.trim()
     if (!name || name === currentName) return
+
+    const auth = await getOwnerAuthHeader()
+    if (!auth) {
+      setMessage('请先通过邮箱验证码登录管理员账号。')
+      return
+    }
+
     const res = await fetch(`/api/players/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, pin }),
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ name }),
     })
     const data = await res.json()
     if (!res.ok) return setMessage(data.error ?? '修改失败')
+
     setMessage('名称已修改；历史对局会自动显示新名称。')
     await load()
   }
@@ -33,14 +43,21 @@ export default function ManagePage() {
   return (
     <main>
       <h1>管理</h1>
+      <p className="muted">
+        管理操作仅限已验证的管理员邮箱。<Link href="/login">管理员登录</Link>
+      </p>
+
       {message && <div className="card">{message}</div>}
+
       <div className="card">
         <h2>玩家管理</h2>
-        <input type="password" placeholder="管理员 PIN" value={pin} onChange={(e) => setPin(e.target.value)} style={{ marginBottom: 16 }} />
         <table>
           <thead><tr><th>玩家</th><th>操作</th></tr></thead>
           <tbody>{players.map((p) => (
-            <tr key={p.id}><td>{p.name}</td><td><button onClick={() => renamePlayer(p.id, p.name)}>修改姓名</button></td></tr>
+            <tr key={p.id}>
+              <td>{p.name}</td>
+              <td><button onClick={() => renamePlayer(p.id, p.name)}>修改姓名</button></td>
+            </tr>
           ))}</tbody>
         </table>
       </div>

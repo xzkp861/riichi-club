@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireOwner } from '@/lib/owner-auth'
 
 export async function GET() {
   try {
@@ -14,10 +15,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireOwner(request)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     const form = await request.formData()
-    if (String(form.get('pin') ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
-    }
     const name = String(form.get('name') ?? '').trim()
     if (!name) return NextResponse.json({ error: '请输入玩家名' }, { status: 400 })
 

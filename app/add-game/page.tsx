@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { getOwnerAuthHeader } from '@/lib/supabase/browser'
 
 type Player = { id: string; name: string }
 const SEATS = ['东', '南', '西', '北']
@@ -29,10 +31,13 @@ export default function AddGamePage() {
   async function addPlayer(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setMessage('')
+    const auth = await getOwnerAuthHeader()
+    if (!auth) return setMessage('请先通过邮箱验证码登录管理员账号。')
+
     const formElement = e.currentTarget
     const form = new FormData(formElement)
     try {
-      const res = await fetch('/api/players', { method: 'POST', body: form })
+      const res = await fetch('/api/players', { method: 'POST', headers: auth, body: form })
       const data = await res.json()
       if (!res.ok) return setMessage(data.error ?? '添加失败')
       formElement.reset()
@@ -47,9 +52,13 @@ export default function AddGamePage() {
     e.preventDefault()
     setMessage('')
     if (!totalOK) return setMessage(`四家终局点数必须合计 100000，目前为 ${total}`)
+
+    const auth = await getOwnerAuthHeader()
+    if (!auth) return setMessage('请先通过邮箱验证码登录管理员账号。')
+
     const form = new FormData(e.currentTarget)
     try {
-      const res = await fetch('/api/games', { method: 'POST', body: form })
+      const res = await fetch('/api/games', { method: 'POST', headers: auth, body: form })
       const text = await res.text()
       const data = text ? JSON.parse(text) : {}
       if (!res.ok) return setMessage(data.error ?? '保存失败')
@@ -62,13 +71,16 @@ export default function AddGamePage() {
   return (
     <main>
       <h1>录入对局</h1>
+      <p className="muted">
+        录入和玩家管理需要管理员邮箱验证。<Link href="/login">管理员登录</Link>
+      </p>
+
       {message && <div className="card">{message}</div>}
 
       <div className="card">
         <h2>添加玩家</h2>
         <form onSubmit={addPlayer} className="grid">
           <input name="name" placeholder="玩家名" required />
-          <input name="pin" type="password" placeholder="管理员 PIN" required />
           <button type="submit">添加玩家</button>
         </form>
       </div>
@@ -102,7 +114,6 @@ export default function AddGamePage() {
             </div>
           </div>
 
-          <input name="pin" type="password" placeholder="管理员 PIN" required style={{ marginRight: 10 }} />
           <button type="submit" disabled={!totalOK} style={{ opacity: totalOK ? 1 : 0.5 }}>保存这一场</button>
         </form>
       </div>

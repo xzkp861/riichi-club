@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFinalScores } from '@/lib/scoring'
 import { recalculateRatings } from '@/lib/rating'
+import { requireOwner } from '@/lib/owner-auth'
 
 export async function POST(request: Request) {
   let createdGameId: string | null = null
   try {
-    const form = await request.formData()
-    if (String(form.get('pin') ?? '') !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: '管理员 PIN 错误' }, { status: 401 })
-    }
+    const auth = await requireOwner(request)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
+    const form = await request.formData()
     const playerIds = [0,1,2,3].map((i) => String(form.get(`player${i}`) ?? ''))
     const scores = [0,1,2,3].map((i) => Number(form.get(`score${i}`)))
     if (new Set(playerIds).size !== 4 || playerIds.some((x) => !x)) {

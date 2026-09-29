@@ -1,0 +1,16 @@
+.home { padding: 28rpx; padding-bottom: 72rpx; }
+.hero { background: #132d2b; color: white; border-radius: 24rpx; padding: 40rpx; display: flex; flex-direction: column; gap: 12rpx; }
+.brand { font-size: 42rpx; font-weight: 800; letter-spacing: 3rpx; }
+.sub { font-size: 26rpx; color: #bfd2ca; }
+.section-title { font-weight: 700; font-size: 34rpx; margin: 42rpx 0 20rpx; }
+.table-scroll { background: white; border-radius: 20rpx; }
+.table { width: max-content; min-width: 100%; }
+.row { display: flex; min-height: 78rpx; align-items: center; border-bottom: 1rpx solid #e8eee9; font-size: 25rpx; }
+.heading { color: #576b65; font-weight: 700; background: #edf3ee; }
+.rank { width: 65rpx; text-align: center; flex-shrink: 0; }
+.name { width: 160rpx; padding-left: 10rpx; flex-shrink: 0; font-weight: 600; }
+.cell { width: 138rpx; text-align: center; flex-shrink: 0; }
+.game { background: white; padding: 26rpx; border-radius: 20rpx; margin-bottom: 20rpx; }
+.date { color: #576b65; font-size: 25rpx; margin-bottom: 12rpx; }
+.result { display: flex; justify-content: space-between; padding: 10rpx 0; font-size: 25rpx; gap: 20rpx; }
+.notice { margin-top: 20rpx; padding: 24rpx; border-radius: 16rpx; background: #fff4df; font-size: 26rpx; }

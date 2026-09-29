@@ -1,0 +1,6 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "BOS RIICHI",
+  "appid": "touristappid",
+  "setting": { "es6": true, "minified": true }
+}

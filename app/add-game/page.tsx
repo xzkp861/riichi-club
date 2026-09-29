@@ -28,26 +28,6 @@ export default function AddGamePage() {
 
   useEffect(() => { loadPlayers() }, [])
 
-  async function addPlayer(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setMessage('')
-    const auth = await getOwnerAuthHeader()
-    if (!auth) return setMessage('请先通过邮箱验证码登录管理员账号。')
-
-    const formElement = e.currentTarget
-    const form = new FormData(formElement)
-    try {
-      const res = await fetch('/api/players', { method: 'POST', headers: auth, body: form })
-      const data = await res.json()
-      if (!res.ok) return setMessage(data.error ?? '添加失败')
-      formElement.reset()
-      setMessage('玩家添加成功')
-      await loadPlayers()
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : '添加失败')
-    }
-  }
-
   async function addGame(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setMessage('')
@@ -72,18 +52,10 @@ export default function AddGamePage() {
     <main>
       <h1>录入对局</h1>
       <p className="muted">
-        录入和玩家管理需要管理员邮箱验证。<Link href="/login">管理员登录</Link>
+        录入对局需要管理员邮箱验证。<Link href="/login">管理员登录</Link>
       </p>
 
       {message && <div className="card">{message}</div>}
-
-      <div className="card">
-        <h2>添加玩家</h2>
-        <form onSubmit={addPlayer} className="grid">
-          <input name="name" placeholder="玩家名" required />
-          <button type="submit">添加玩家</button>
-        </form>
-      </div>
 
       <div className="card">
         <h2>四麻半庄结果</h2>

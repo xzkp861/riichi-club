@@ -18,6 +18,32 @@ export default function ManagePage() {
 
   useEffect(() => { load() }, [])
 
+  async function addPlayer(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setMessage('')
+
+    const auth = await getOwnerAuthHeader()
+    if (!auth) {
+      setMessage('请先通过邮箱验证码登录管理员账号。')
+      return
+    }
+
+    const formElement = e.currentTarget
+    const form = new FormData(formElement)
+    const res = await fetch('/api/players', {
+      method: 'POST',
+      headers: auth,
+      body: form,
+    })
+    const data = await res.json()
+
+    if (!res.ok) return setMessage(data.error ?? '添加失败')
+
+    formElement.reset()
+    setMessage('玩家添加成功。')
+    await load()
+  }
+
   async function renamePlayer(id: string, currentName: string) {
     const name = window.prompt('新的玩家名', currentName)?.trim()
     if (!name || name === currentName) return
@@ -48,6 +74,14 @@ export default function ManagePage() {
       </p>
 
       {message && <div className="card">{message}</div>}
+
+      <div className="card">
+        <h2>添加玩家</h2>
+        <form onSubmit={addPlayer} className="grid" style={{ marginBottom: 18 }}>
+          <input name="name" placeholder="玩家名" required />
+          <button type="submit">添加玩家</button>
+        </form>
+      </div>
 
       <div className="card">
         <h2>玩家管理</h2>

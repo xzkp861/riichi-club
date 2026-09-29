@@ -50,7 +50,6 @@ export default function RootLayout({
             >
               <Link href="/games">历史</Link>
               <Link href="/add-game">录入</Link>
-              <Link href="/me">个人中心</Link>
               <Link href="/calculator">速查</Link>
               <Link href="/manage">管理</Link>
             </div>

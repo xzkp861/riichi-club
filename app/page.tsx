@@ -59,7 +59,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
     <h2 style={{marginTop:32}}>最近对局</h2>
     {(recentGames ?? []).map((g:any)=><section className="card" key={g.id} style={{marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><b>{new Date(g.played_at).toLocaleString('zh-CN')}</b><Link href={`/games#${g.id}`}>查看本场</Link></div>
+      <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><b>{new Date(g.played_at).toLocaleDateString('zh-CN')}</b><Link href={`/games#${g.id}`}>查看本场</Link></div>
       <table><thead><tr><th>顺位</th><th>玩家</th><th>终局点数</th><th>积分</th></tr></thead><tbody>
         {[...g.game_results].sort((a:any,b:any)=>a.rank-b.rank || a.seat-b.seat).map((r:any)=><tr key={r.id}><td>{r.rank}</td><td>{r.players.name}</td><td>{r.raw_score}</td><td>{Number(r.final_score).toFixed(1)}</td></tr>)}
       </tbody></table>

@@ -296,8 +296,7 @@ export default function EditGamePage({
         <h2>危险操作</h2>
 
         <p className="muted">
-          删除后，这场对局及对应的 PT
-          统计都会从排行榜中移除，且无法恢复。
+          删除后，这场对局会从历史记录中移除，相关战绩统计将重新计算，且无法恢复。
         </p>
 
         <button

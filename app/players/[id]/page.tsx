@@ -42,15 +42,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
       rating: club.ratingByGamePlayer.get(`${game.id}:${id}`) }]
   })
   const count = mine.length
-  const pt = mine.reduce((sum, row) => sum + Number(row.result.final_score), 0)
   const avgRank = count ? mine.reduce((sum, row) => sum + Number(row.result.rank), 0) / count : null
   const rankCounts = [1, 2, 3, 4].map(rank => mine.filter(row => row.result.rank === rank).length)
   const lastRating = mine[count - 1]?.rating
   const currentRating = !count ? 1500 : lastRating ? Number(lastRating.rating_after) : null
   const rated = mine.filter(row => row.rating)
   const peakRating = rated.reduce((peak, row) => Math.max(peak, Number(row.rating!.rating_after)), 1500)
-  const best = mine.reduce<(typeof mine)[number] | null>((a, row) => !a || Number(row.result.final_score) > Number(a.result.final_score) ? row : a, null)
-  const worst = mine.reduce<(typeof mine)[number] | null>((a, row) => !a || Number(row.result.final_score) < Number(a.result.final_score) ? row : a, null)
   const promotions = new Map(state.promotions.map(event => [event.gameId, event]))
   const versus = new Map<string, { id: string; name: string; games: number; wins: number }>()
   for (const me of mine) for (const opponent of me.game.game_results) {
@@ -68,10 +65,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     </section>
     <div id="dan-progress"><DanPanel state={state} /></div>
     <div className="grid">
-      <div className="card"><div className="muted">累计 PT / 平均 PT</div><h2>{fmt(pt)} / {count ? fmt(pt / count) : '—'}</h2></div>
       <div className="card"><div className="muted">场次 / 原统计均顺</div><h2>{count} / {avgRank?.toFixed(2) ?? '—'}</h2></div>
       <div className="card"><div className="muted">一位率 / 连对率</div><h2>{count ? pct(rankCounts[0] / count) : '—'} / {count ? pct((rankCounts[0] + rankCounts[1]) / count) : '—'}</h2></div>
-      <div className="card"><div className="muted">四位率 / 历史最高 Rate</div><h2>{count ? pct(rankCounts[3] / count) : '—'} / {peakRating.toFixed(1)}</h2></div>
+      <div className="card"><div className="muted">四位率</div><h2>{count ? pct(rankCounts[3] / count) : '—'}</h2></div>
+      <div className="card"><div className="muted">历史最高 Rate</div><h2>{peakRating.toFixed(1)}</h2></div>
     </div>
     <section className="card"><h2>晋级履历</h2>
       {!state.promotions.length ? <p className="muted">从初段开始，尚无晋级记录。</p> : <div style={{ overflowX: 'auto' }}><table>
@@ -87,11 +84,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         {rankCounts.map((n, i) => <div key={i}><div className="muted">{i + 1} 位</div><strong style={{ fontSize: 24 }}>{n}</strong><div>{count ? pct(n / count) : '—'}</div></div>)}
       </div><p className="muted">此处沿用原记录的并列名次；升段考核单独使用平均名次，不混用两个指标。</p>
     </section>
-    <div className="grid">{[['最佳单场', best], ['最低单场', worst]].map(([label, item]) => {
-      const row = item as (typeof mine)[number] | null
-      return <section className="card" key={String(label)}><div className="muted">{String(label)}</div><h2>{row ? fmt(Number(row.result.final_score)) : '—'}</h2>
-        {row && <Link href={`/games#${row.game.id}`}>{row.result.rank} 位 · {date(row.game.played_at)}</Link>}</section>
-    })}</div>
     <section className="card"><h2>Rate 曲线</h2>
       {rated.length !== count ? <p className="muted">部分 Rate 历史尚未重算，暂不绘制不完整曲线。</p> : <LineChart values={mine.map(row => Number(row.rating!.rating_after))} />}
     </section>
@@ -103,10 +95,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
       </tr>)}</tbody></table></div><p className="muted">同桌终局点数领先计 1 胜，同点计 0.5 胜。</p>
     </section>
     <section className="card"><h2>最近 10 场</h2><div style={{ overflowX: 'auto' }}><table>
-      <thead><tr><th>日期</th><th>显示顺位</th><th>考核顺位</th><th>终局点数</th><th>PT</th><th>Rate变化</th><th>晋级</th></tr></thead>
+      <thead><tr><th>日期</th><th>显示顺位</th><th>考核顺位</th><th>终局点数</th><th>Rate变化</th><th>晋级</th></tr></thead>
       <tbody>{[...mine].reverse().slice(0, 10).map(row => <tr key={row.game.id}>
         <td><Link href={`/games#${row.game.id}`}>{date(row.game.played_at)}</Link></td><td>{row.result.rank} 位</td><td>{row.assessmentRank}</td>
-        <td>{row.result.raw_score.toLocaleString()}</td><td>{fmt(Number(row.result.final_score))}</td><td>{row.rating ? fmt(Number(row.rating.rating_change), 2) : '—'}</td>
+        <td>{row.result.raw_score.toLocaleString()}</td><td>{row.rating ? fmt(Number(row.rating.rating_change), 2) : '—'}</td>
         <td>{promotions.has(row.game.id) ? `升至${danLabel(promotions.get(row.game.id)!.to)}` : '—'}</td>
       </tr>)}</tbody></table></div>
     </section>

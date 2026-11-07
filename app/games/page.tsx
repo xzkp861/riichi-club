@@ -27,10 +27,10 @@ export default async function GamesPage() {
         <b>{new Date(g.played_at).toLocaleDateString('zh-CN')}</b>
         <Link href={`/games/${g.id}/edit`}>编辑本场</Link>
       </div>
-      <table><thead><tr><th>顺位</th><th>玩家</th><th>终局点数</th><th>积分</th><th>Rate变化</th></tr></thead>
+      <table><thead><tr><th>顺位</th><th>玩家</th><th>终局点数</th><th>Rate变化</th></tr></thead>
       <tbody>{[...g.game_results].sort((a:any,b:any)=>a.rank-b.rank || a.seat-b.seat).map((r:any)=>{
         const change = ratingChanges.get(`${g.id}:${r.player_id}`)
-        return <tr key={r.id}><td>{r.rank}</td><td>{r.players.name}</td><td>{r.raw_score}</td><td>{Number(r.final_score).toFixed(1)}</td><td>{change === undefined ? '—' : signed(change)}</td></tr>
+        return <tr key={r.id}><td>{r.rank}</td><td>{r.players.name}</td><td>{r.raw_score}</td><td>{change === undefined ? '—' : signed(change)}</td></tr>
       })}</tbody></table>
     </section>
   ))}</main>

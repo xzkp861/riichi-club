@@ -1,69 +1,70 @@
 import Link from 'next/link'
-import { createPublicClient } from '@/lib/supabase/public'
-import { INITIAL_RATING } from '@/lib/rating'
+import { loadClubData } from '@/lib/club-data'
+import { danLabel, danProgress } from '@/lib/dan'
+import GameCard from '@/components/GameCard'
 
 export const dynamic = 'force-dynamic'
-
-type SortKey = 'pt' | 'rate' | 'games' | 'avgRank' | 'firstRate' | 'fourthRate' | 'avgPt'
+type SortKey = 'dan' | 'pt' | 'rate' | 'games' | 'avgRank' | 'firstRate' | 'fourthRate' | 'avgPt'
 type SortDir = 'asc' | 'desc'
-
-const DEFAULT_DIR: Record<SortKey, SortDir> = {
-  pt: 'desc', rate: 'desc', games: 'desc', avgRank: 'asc', firstRate: 'desc', fourthRate: 'asc', avgPt: 'desc',
-}
+const DIRECTIONS: Record<SortKey, SortDir> = { dan: 'desc', pt: 'desc', rate: 'desc', games: 'desc', avgRank: 'asc', firstRate: 'desc', fourthRate: 'asc', avgPt: 'desc' }
+const fmt = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(1)}`
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ sort?: string; dir?: string }> }) {
   const params = await searchParams
-  const allowedSorts: SortKey[] = ['pt', 'rate', 'games', 'avgRank', 'firstRate', 'fourthRate', 'avgPt']
-  const sort: SortKey = allowedSorts.includes(params.sort as SortKey) ? (params.sort as SortKey) : 'pt'
-  const dir: SortDir = params.dir === 'asc' || params.dir === 'desc' ? params.dir : DEFAULT_DIR[sort]
-  const supabase = createPublicClient()
-
-  const [{ data: results }, { data: ratingHistory }, { data: recentGames }] = await Promise.all([
-    supabase.from('game_results').select(`player_id,rank,final_score,players(id,name)`),
-    supabase.from('rating_history').select('player_id,rating_after,games_before').order('games_before', { ascending: true }),
-    supabase.from('games').select('id,played_at,game_results(id,seat,rank,raw_score,final_score,players(name))').order('played_at', { ascending: false }).limit(4),
-  ])
-
-  const latestRatings = new Map<string, { rating: number; gamesBefore: number }>()
-  for (const row of ratingHistory ?? []) {
-    const gamesBefore = Number(row.games_before)
-    const current = latestRatings.get(row.player_id)
-    if (!current || gamesBefore >= current.gamesBefore) latestRatings.set(row.player_id, { rating: Number(row.rating_after), gamesBefore })
+  const sort: SortKey = Object.hasOwn(DIRECTIONS, params.sort ?? '') ? params.sort as SortKey : 'dan'
+  const dir: SortDir = params.dir === 'asc' || params.dir === 'desc' ? params.dir : DIRECTIONS[sort]
+  let club: Awaited<ReturnType<typeof loadClubData>>
+  try { club = await loadClubData() } catch {
+    return <main><h1>段位排行榜</h1><div className="card" role="alert">暂时无法读取完整战绩，段位判定已暂停。请刷新重试；若持续出现，请管理员检查数据库连接和是否有不完整对局。</div><Link href="/games">查看历史对局 →</Link></main>
   }
-
-  const stats = new Map<string, { id:string; name:string; games:number; rankSum:number; firsts:number; fourths:number; ptSum:number }>()
-  for (const r of results ?? []) {
-    const player = Array.isArray(r.players) ? r.players[0] : r.players
-    if (!player) continue
-    if (!stats.has(player.id)) stats.set(player.id, { id:player.id, name:player.name, games:0, rankSum:0, firsts:0, fourths:0, ptSum:0 })
-    const s = stats.get(player.id)!
-    s.games += 1; s.rankSum += Number(r.rank); if (Number(r.rank) === 1) s.firsts += 1; if (Number(r.rank) === 4) s.fourths += 1; s.ptSum += Number(r.final_score)
+  const stats = new Map(club.players.map(player => [player.id, { ...player, games: 0, rankSum: 0, firsts: 0, fourths: 0, pt: 0 }]))
+  for (const game of club.games) for (const row of game.game_results) {
+    const item = stats.get(row.player_id)
+    if (!item) continue
+    item.games += 1; item.rankSum += Number(row.rank); item.pt += Number(row.final_score)
+    if (row.rank === 1) item.firsts += 1
+    if (row.rank === 4) item.fourths += 1
   }
-
-  const leaderboard = [...stats.values()].map(s => ({ ...s, rate:latestRatings.get(s.id)?.rating ?? INITIAL_RATING, avgRank:s.games?s.rankSum/s.games:0, firstRate:s.games?s.firsts/s.games:0, fourthRate:s.games?s.fourths/s.games:0, avgPt:s.games?s.ptSum/s.games:0 }))
-  const valueFor = (p:(typeof leaderboard)[number], key:SortKey) => ({ pt:p.ptSum, rate:p.rate, games:p.games, avgRank:p.avgRank, firstRate:p.firstRate, fourthRate:p.fourthRate, avgPt:p.avgPt })[key]
-  leaderboard.sort((a,b) => { const diff=valueFor(a,sort)-valueFor(b,sort); return diff!==0 ? (dir==='asc'?diff:-diff) : b.ptSum-a.ptSum })
-
-  const formatPt = (value:number) => value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1)
-  const sortHref = (key:SortKey) => `/?sort=${key}&dir=${sort===key?(dir==='desc'?'asc':'desc'):DEFAULT_DIR[key]}`
-  const sortLabel = (label:string,key:SortKey) => <Link href={sortHref(key)} style={{display:'inline-flex',gap:4,alignItems:'center'}}>{label}{sort===key?(dir==='desc'?'↓':'↑'):''}</Link>
-
+  const rows = [...stats.values()].map(item => {
+    const state = club.standings.get(item.id)!
+    const rating = club.latestRatings.get(item.id)
+    // Do not present an initial 1500 as a real rating when historical rebuilding is missing.
+    const rate = !item.games ? 1500 : rating && Number(rating.games_before) + 1 === item.games ? Number(rating.rating_after) : null
+    return { ...item, dan: state.dan, progress: danProgress(state), rate,
+      avgRank: item.games ? item.rankSum / item.games : null,
+      firstRate: item.games ? item.firsts / item.games : null,
+      fourthRate: item.games ? item.fourths / item.games : null,
+      avgPt: item.games ? item.pt / item.games : null }
+  })
+  rows.sort((a, b) => {
+    const av = a[sort], bv = b[sort]
+    if (av === null || bv === null) { if (av !== bv) return av === null ? 1 : -1 }
+    else if (av !== bv) return dir === 'asc' ? av - bv : bv - av
+    return (b.rate ?? -Infinity) - (a.rate ?? -Infinity) || b.pt - a.pt || a.id.localeCompare(b.id)
+  })
+  const heading = (label: string, key: SortKey) => <Link scroll={false} href={`/?sort=${key}&dir=${sort === key ? dir === 'desc' ? 'asc' : 'desc' : DIRECTIONS[key]}`}>{label}{sort === key ? dir === 'desc' ? ' ↓' : ' ↑' : ''}</Link>
   return <main>
-    <h1>排行榜</h1>
-    <p className="muted">点击任意统计列标题即可排序；再次点击可切换升序 / 降序。点击玩家查看个人主页。</p>
-    <div className="card" style={{overflowX:'auto'}}>
-      {leaderboard.length===0 ? <p className="muted">还没有对局数据。先添加玩家并录入第一场。</p> : <table><thead><tr><th>排名</th><th>玩家</th><th>{sortLabel('PT','pt')}</th><th>{sortLabel('Rate','rate')}</th><th>{sortLabel('场次','games')}</th><th>{sortLabel('均顺','avgRank')}</th><th>{sortLabel('一位率','firstRate')}</th><th>{sortLabel('四位率','fourthRate')}</th><th>{sortLabel('平均 PT','avgPt')}</th></tr></thead><tbody>
-        {leaderboard.map((p,index)=><tr key={p.id}><td>{index+1}</td><td><Link href={`/players/${p.id}`}><strong>{p.name}</strong></Link></td><td><strong>{formatPt(p.ptSum)}</strong></td><td><strong>{p.rate.toFixed(1)}</strong></td><td>{p.games}</td><td>{p.avgRank.toFixed(2)}</td><td>{(p.firstRate*100).toFixed(1)}%</td><td>{(p.fourthRate*100).toFixed(1)}%</td><td>{formatPt(p.avgPt)}</td></tr>)}
-      </tbody></table>}
+    <h1>段位排行榜</h1>
+    <p className="muted">全员初段起步。默认按段位排序，同段按 Rate、PT 排序；点击统计表头可切换排序。</p>
+    <p><Link href="/dan">查看晋级条件与同点规则 →</Link></p>
+    <div className="card" style={{ overflowX: 'auto' }}>
+      {!rows.length ? <p className="muted">还没有玩家。添加玩家后即以初段显示。</p> : <table>
+        <thead><tr><th>序号</th><th>玩家</th><th>{heading('段位', 'dan')}</th><th>晋级考核</th><th>{heading('Rate', 'rate')}</th><th>{heading('PT', 'pt')}</th><th>{heading('场次', 'games')}</th><th>{heading('均顺', 'avgRank')}</th><th>{heading('一位率', 'firstRate')}</th><th>{heading('四位率', 'fourthRate')}</th><th>{heading('平均 PT', 'avgPt')}</th></tr></thead>
+        <tbody>{rows.map((row, index) => <tr key={row.id}>
+          <td>{index + 1}</td><td><Link href={`/players/${row.id}`}><strong>{row.name}</strong></Link></td>
+          <td style={{ whiteSpace: 'nowrap' }}><strong>{danLabel(row.dan)}</strong></td>
+          <td style={{ minWidth: 175 }}><Link href={`/players/${row.id}#dan-progress`}>
+            {row.progress.rule ? <>{row.progress.count}/{row.progress.rule.windowSize} 场 → {danLabel(row.progress.rule.to)}<br /><small className="muted">{row.progress.remaining ? '暂定' : '窗口'}均顺 {row.progress.average?.toFixed(3) ?? '—'} / ≤ {(row.progress.rule.averageTenths / 10).toFixed(2)}</small></> : '已达最高段位'}
+          </Link></td>
+          <td>{row.rate?.toFixed(1) ?? '待重算'}</td><td>{fmt(row.pt)}</td><td>{row.games}</td>
+          <td>{row.avgRank?.toFixed(2) ?? '—'}</td><td>{row.firstRate === null ? '—' : `${(row.firstRate * 100).toFixed(1)}%`}</td>
+          <td>{row.fourthRate === null ? '—' : `${(row.fourthRate * 100).toFixed(1)}%`}</td><td>{row.avgPt === null ? '—' : fmt(row.avgPt)}</td>
+        </tr>)}</tbody>
+      </table>}
     </div>
-
-    <h2 style={{marginTop:32}}>最近对局</h2>
-    {(recentGames ?? []).map((g:any)=><section className="card" key={g.id} style={{marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><b>{new Date(g.played_at).toLocaleDateString('zh-CN')}</b><Link href={`/games#${g.id}`}>查看本场</Link></div>
-      <table><thead><tr><th>顺位</th><th>玩家</th><th>终局点数</th><th>积分</th></tr></thead><tbody>
-        {[...g.game_results].sort((a:any,b:any)=>a.rank-b.rank || a.seat-b.seat).map((r:any)=><tr key={r.id}><td>{r.rank}</td><td>{r.players.name}</td><td>{r.raw_score}</td><td>{Number(r.final_score).toFixed(1)}</td></tr>)}
-      </tbody></table>
-    </section>)}
+    <p className="muted">“考核均顺”同点取占据名次的平均值；原“均顺”和一位率等统计仍按历史记录的并列名次计算。未打过对局的玩家显示初段。</p>
+    <h2 style={{ marginTop: 32 }}>最近 4 场对局</h2>
+    {[...club.games].reverse().slice(0, 4).map(game => <GameCard key={game.id} game={game} players={club.playerById} />)}
     <p><Link href="/games">查看全部历史对局 →</Link></p>
   </main>
 }

@@ -27,8 +27,8 @@ export async function readAllPages<T>(load: (from: number, to: number) => Promis
   }
 }
 
-/** Read-only full replay on every request. No dan cache or second source of truth. */
-export async function loadClubData() {
+/** Read-only player history; personal profiles do not depend on dan replay. */
+export async function loadClubHistory() {
   const db = createPublicClient()
   const [players, rawGames, ratings] = await Promise.all([
     readAllPages<ClubPlayer>((from, to) => db.from('players')
@@ -41,7 +41,6 @@ export async function loadClubData() {
       .order('id').range(from, to)),
   ])
   const games = chronologicalGames(rawGames)
-  const standings = replayDanHistory(games, players.map(player => player.id))
   const playerById = new Map(players.map(player => [player.id, player]))
   const gameIds = new Set(games.map(game => game.id))
   const latestRatings = new Map<string, ClubRating>()
@@ -52,5 +51,12 @@ export async function loadClubData() {
     const current = latestRatings.get(row.player_id)
     if (!current || Number(row.games_before) > Number(current.games_before)) latestRatings.set(row.player_id, row)
   }
-  return { players, games, standings, playerById, latestRatings, ratingByGamePlayer }
+  return { players, games, playerById, latestRatings, ratingByGamePlayer }
+}
+
+/** Retained for future dan views. No stored ranks or historical records are removed. */
+export async function loadClubData() {
+  const club = await loadClubHistory()
+  const standings = replayDanHistory(club.games, club.players.map(player => player.id))
+  return { ...club, standings }
 }

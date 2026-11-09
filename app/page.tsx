@@ -1,22 +1,35 @@
+import RateLeaderboard from '@/components/RateLeaderboard'
 import PlayerDirectory from '@/components/PlayerDirectory'
 import { createPublicClient } from '@/lib/supabase/public'
-import { readAllPages, type ClubPlayer } from '@/lib/club-data'
+import { loadClubHistory } from '@/lib/club-data'
+import { buildRateLeaderboard } from '@/lib/leaderboard'
+import { loadRankingPlayers } from '@/lib/ranking-players'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  let players: ClubPlayer[]
   try {
-    const db = createPublicClient()
-    players = await readAllPages<ClubPlayer>((from, to) => db.from('players')
-      .select('id,name', { count: 'exact' }).order('name').order('id').range(from, to))
+    const [club, preferences] = await Promise.all([
+      loadClubHistory(), loadRankingPlayers(createPublicClient()),
+    ])
+    // Do not guess a preference if a player is added/deleted during these reads.
+    if (club.players.length !== preferences.players.length ||
+        preferences.players.some(player => !club.playerById.has(player.id))) {
+      throw new Error('玩家列表正在更新，请刷新')
+    }
+    if (!preferences.rankingSettingsReady) return <main>
+      <h1>玩家主页</h1>
+      <p className="muted">Rate 排行榜正在准备中，暂时保留个人主页入口。</p>
+      <PlayerDirectory players={[...club.players].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN') || a.id.localeCompare(b.id))} />
+    </main>
+    const rows = buildRateLeaderboard(preferences.players, club.games, club.ratingByGamePlayer)
+    return <main>
+      <h1>Rate 排行榜</h1>
+      <p className="muted">按生涯 Rate 从高到低排列。Rate 沿用从第一场开始、结合当时同桌 Rate 的完整历史计算，不截断为 30 场。</p>
+      <p className="muted">均顺、一位率、四位率只统计每位玩家自己的最近 30 个半庄；不足 30 场按实际场数。个人主页仍保留完整历史。</p>
+      <RateLeaderboard rows={rows} />
+    </main>
   } catch {
-    return <main><h1>玩家主页</h1><div className="card" role="alert">暂时无法读取玩家列表，请刷新重试。</div></main>
+    return <main><h1>Rate 排行榜</h1><div className="card" role="alert">暂时无法读取完整战绩或参榜设置，请刷新重试。为避免错误展示，暂不生成排名。</div></main>
   }
-
-  return <main>
-    <h1>玩家主页</h1>
-    <p className="muted">选择玩家查看个人战绩，玩家按姓名排列。</p>
-    <PlayerDirectory players={players} />
-  </main>
 }

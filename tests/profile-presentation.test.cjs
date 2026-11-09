@@ -5,19 +5,31 @@ const { resolve } = require('node:path')
 const read = path => readFileSync(resolve(__dirname, '..', path), 'utf8')
 const home = read('app/page.tsx')
 const directory = read('components/PlayerDirectory.tsx')
+const board = read('components/RateLeaderboard.tsx')
 const profile = read('app/players/[id]/page.tsx')
 const loader = read('lib/club-data.ts')
 
-test('home is a player directory, not a sortable leaderboard', () => {
-  assert.match(home, /PlayerDirectory players=\{players\}/)
-  assert.doesNotMatch(home, /searchParams|SortKey|<table|GameCard|loadClubData|段位|排行榜|PT/)
-  assert.match(home, /\.order\('name'\)\.order\('id'\)/)
+test('home restores Rate ranking but never dan or PT presentation', () => {
+  assert.match(home, /RateLeaderboard rows=\{rows\}/)
+  assert.match(home, /buildRateLeaderboard\(preferences.players, club.games, club.ratingByGamePlayer\)/)
+  assert.match(home, /生涯 Rate/)
+  assert.match(home, /最近 30 个半庄/)
+  assert.match(home, /!preferences.rankingSettingsReady/)
+  assert.doesNotMatch(home, /searchParams|SortKey|GameCard|loadClubData|段位|\bPT\b/)
 })
 
-test('directory lists names and profile links without ratings or ranking numbers', () => {
+test('name directory remains available during migration without revealing metrics', () => {
   assert.match(directory, /href=\{`\/players\/\$\{player.id\}`\}/)
   assert.match(directory, /type="search"/)
   assert.doesNotMatch(directory, /Rate|PT|rank|dan|index|<table/)
+})
+
+test('opt-out rows have linked names and grey placeholders, not faded metrics', () => {
+  const excluded = board.split('row.excluded ? (')[1].split(') : (')[0]
+  assert.match(excluded, /row.name/)
+  assert.match(excluded, /mutedCell/)
+  assert.match(excluded, /不参榜，不展示数据/)
+  assert.doesNotMatch(excluded, /row\.(rate|position|avgRank|firstRate|fourthRate|recentGames)/)
 })
 
 test('profile hides dan, promotion and assessment UI', () => {
@@ -50,7 +62,7 @@ test('personal history loading is independent of dan replay', () => {
 test('read path preserves score fields and never writes to the database', () => {
   assert.match(loader, /final_score/)
   assert.match(loader, /rating_history/)
-  for (const source of [loader, home, profile, directory]) {
+  for (const source of [loader, home, profile, directory, board]) {
     assert.doesNotMatch(source, /\.(?:insert|update|delete|upsert)\s*\(/)
   }
 })

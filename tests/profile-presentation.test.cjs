@@ -9,13 +9,15 @@ const board = read('components/RateLeaderboard.tsx')
 const profile = read('app/players/[id]/page.tsx')
 const loader = read('lib/club-data.ts')
 
-test('home restores Rate ranking but never dan or PT presentation', () => {
+test('home defaults to recent PT, retains lifetime Rate and hides dan', () => {
   assert.match(home, /RateLeaderboard rows=\{rows\}/)
   assert.match(home, /buildRateLeaderboard\(preferences.players, club.games, club.ratingByGamePlayer\)/)
+  assert.match(home, /默认按近30场 PT 总和/)
   assert.match(home, /生涯 Rate/)
   assert.match(home, /最近 30 个半庄/)
+  assert.match(home, /总场数为全部历史半庄数/)
   assert.match(home, /!preferences.rankingSettingsReady/)
-  assert.doesNotMatch(home, /searchParams|SortKey|GameCard|loadClubData|段位|\bPT\b/)
+  assert.doesNotMatch(home, /searchParams|GameCard|loadClubData|段位/)
 })
 
 test('name directory remains available during migration without revealing metrics', () => {
@@ -29,7 +31,22 @@ test('opt-out rows have linked names and grey placeholders, not faded metrics', 
   assert.match(excluded, /row.name/)
   assert.match(excluded, /mutedCell/)
   assert.match(excluded, /不参榜，不展示数据/)
-  assert.doesNotMatch(excluded, /row\.(rate|position|avgRank|firstRate|fourthRate|recentGames)/)
+  assert.doesNotMatch(excluded, /row\.(rate|position|recentPt|totalGames|avgRank|firstRate|fourthRate|recentGames)/)
+})
+
+test('board shows total games instead of the capped sample count', () => {
+  assert.match(board, /heading\('总场数', 'totalGames'\)/)
+  assert.match(board, /<td>\{row.totalGames\}<\/td>/)
+  assert.doesNotMatch(board, /统计场数|row.recentGames|\/ 30/)
+  assert.match(board, /heading\('近30场 PT', 'recentPt'\)/)
+  assert.match(board, /heading\('Rate（生涯）', 'rate'\)/)
+})
+
+test('board sorts the complete list before search and exposes accessible sortable headers', () => {
+  assert.ok(board.indexOf('sortLeaderboard(rows, sort, direction)') < board.indexOf('ordered.filter'))
+  assert.match(board, /useState<LeaderboardSortKey>\(DEFAULT_SORT\)/)
+  assert.match(board, /aria-sort=/)
+  assert.match(board, /onClick=\{\(\) => changeSort\(key\)\}/)
 })
 
 test('profile hides dan, promotion and assessment UI', () => {

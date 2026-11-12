@@ -1,6 +1,6 @@
 import { chronologicalGames, type DanGame } from './dan'
 
-/** PT and descriptive statistics use each player's window; Rate remains lifetime. */
+/** Recent PT/statistics use the personal window; total PT and Rate remain lifetime. */
 export const RECENT_GAME_LIMIT = 30
 export type RankingPlayer = { id: string; name: string; ranking_excluded: boolean }
 type RankingGame = Omit<DanGame, 'game_results'> & {
@@ -14,6 +14,7 @@ export type LeaderboardRow = {
   status: 'ranked' | 'no-games' | 'rating-pending' | 'excluded'
   position: number | null
   recentPt: number | null
+  totalPt: number | null
   rate: number | null
   totalGames: number | null
   recentGames: number | null
@@ -21,11 +22,11 @@ export type LeaderboardRow = {
   firstRate: number | null
   fourthRate: number | null
 }
-export type LeaderboardSortKey = 'recentPt' | 'rate' | 'totalGames' | 'avgRank' | 'firstRate' | 'fourthRate'
+export type LeaderboardSortKey = 'recentPt' | 'totalPt' | 'rate' | 'totalGames' | 'avgRank' | 'firstRate' | 'fourthRate'
 export type SortDirection = 'asc' | 'desc'
 export const DEFAULT_SORT: LeaderboardSortKey = 'recentPt'
 export const SORT_DIRECTIONS: Record<LeaderboardSortKey, SortDirection> = {
-  recentPt: 'desc', rate: 'desc', totalGames: 'desc', avgRank: 'asc', firstRate: 'desc', fourthRate: 'asc',
+  recentPt: 'desc', totalPt: 'desc', rate: 'desc', totalGames: 'desc', avgRank: 'asc', firstRate: 'desc', fourthRate: 'asc',
 }
 
 /** Stored final_score has one decimal. Sum tenths so floating-point noise cannot break ties. */
@@ -81,7 +82,7 @@ export function buildRateLeaderboard(
   ratings: ReadonlyMap<string, RatingSnapshot>,
 ): LeaderboardRow[] {
   const careers = new Map(players.map(player => [player.id, {
-    count: 0, lastGameId: '', recent: [] as { rank: number; pt: number }[],
+    count: 0, lastGameId: '', totalPtTenths: 0, recent: [] as { rank: number; pt: number }[],
   }]))
   for (const game of chronologicalGames(games)) {
     const results = game.game_results
@@ -94,9 +95,12 @@ export function buildRateLeaderboard(
     }
     for (const result of results) {
       const career = careers.get(result.player_id)!
+      const scoreTenths = ptTenths(result.final_score)
       career.count += 1
       career.lastGameId = game.id
-      career.recent.push({ rank: result.rank, pt: ptTenths(result.final_score) })
+      career.totalPtTenths += scoreTenths
+      if (!Number.isSafeInteger(career.totalPtTenths)) throw new Error('累计 PT 超出安全计算范围')
+      career.recent.push({ rank: result.rank, pt: scoreTenths })
       if (career.recent.length > RECENT_GAME_LIMIT) career.recent.shift()
     }
   }
@@ -105,7 +109,7 @@ export function buildRateLeaderboard(
     const base = { id: player.id, name: player.name, position: null }
     // Never serialize excluded players' metrics into the public table component.
     if (player.ranking_excluded) return {
-      ...base, excluded: true, status: 'excluded', recentPt: null, rate: null,
+      ...base, excluded: true, status: 'excluded', recentPt: null, totalPt: null, rate: null,
       totalGames: null, recentGames: null, avgRank: null, firstRate: null, fourthRate: null,
     }
     const career = careers.get(player.id)!
@@ -119,6 +123,7 @@ export function buildRateLeaderboard(
       ...base, excluded: false,
       status: !career.count ? 'no-games' : rate === null ? 'rating-pending' : 'ranked',
       recentPt: recent.length ? recent.reduce((sum, sample) => sum + sample.pt, 0) / 10 : null,
+      totalPt: career.count ? career.totalPtTenths / 10 : null,
       rate,
       totalGames: career.count,
       recentGames: recent.length,

@@ -34,13 +34,13 @@ export default function RateLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
     <input id="player-search" type="search" placeholder="输入玩家名" value={query}
       onChange={event => setQuery(event.target.value)} style={{ margin: '8px 0 18px' }} />
     {!matches.length ? <p className="muted">{rows.length ? '没有匹配的玩家。' : '还没有玩家。'}</p> :
-      <div style={{ overflowX: 'auto' }}><table style={{ minWidth: 760 }}>
-        <thead><tr><th>排名</th><th>玩家</th>{heading('近30场 PT', 'recentPt')}{heading('Rate（生涯）', 'rate')}{heading('总场数', 'totalGames')}{heading('近30场均顺', 'avgRank')}{heading('近30场一位率', 'firstRate')}{heading('近30场四位率', 'fourthRate')}</tr></thead>
+      <div style={{ overflowX: 'auto' }}><table style={{ minWidth: 840 }}>
+        <thead><tr><th>排名</th><th>玩家</th>{heading('近30场 PT', 'recentPt')}{heading('总 PT', 'totalPt')}{heading('Rate（生涯）', 'rate')}{heading('总场数', 'totalGames')}{heading('近30场均顺', 'avgRank')}{heading('近30场一位率', 'firstRate')}{heading('近30场四位率', 'fourthRate')}</tr></thead>
         <tbody>{matches.map(row => row.excluded ? (
           <tr key={row.id}>
             <td style={mutedCell}>—</td>
             <td><Link href={`/players/${row.id}`}><strong>{row.name}</strong></Link><br /><small className="muted">不参与排名</small></td>
-            {[0, 1, 2, 3, 4, 5].map(column => <td key={column} style={mutedCell} aria-label="不参榜，不展示数据">—</td>)}
+            {[0, 1, 2, 3, 4, 5, 6].map(column => <td key={column} style={mutedCell} aria-label="不参榜，不展示数据">—</td>)}
           </tr>
         ) : (
           <tr key={row.id}>
@@ -49,6 +49,7 @@ export default function RateLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
               {row.status !== 'ranked' && <><br /><small className="muted">{row.status === 'no-games' ? '尚无对局' : 'Rate 待重算'}</small></>}
             </td>
             <td><strong>{pt(row.recentPt)}</strong></td>
+            <td>{pt(row.totalPt)}</td>
             <td><strong>{row.rate?.toFixed(2) ?? '—'}</strong></td>
             <td>{row.totalGames}</td>
             <td>{row.avgRank?.toFixed(2) ?? '—'}</td>

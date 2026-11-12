@@ -25,9 +25,9 @@ export default async function HomePage() {
     const rows = buildRateLeaderboard(preferences.players, club.games, club.ratingByGamePlayer)
     return <main>
       <h1>战绩排行榜</h1>
-      <p className="muted">默认按近30场 PT 总和从高到低排列；点击 Rate 或其他统计表头可切换排序。</p>
-      <p className="muted">PT、均顺、一位率、四位率只统计每位玩家自己的最近 30 个半庄；不足 30 场按实际场数，不补足、不折算。</p>
-      <p className="muted">总场数为全部历史半庄数。生涯 Rate 仍从第一场起结合当时同桌 Rate 完整计算，不截断、不重置。个人主页保留完整历史。</p>
+      <p className="muted">默认按近30场 PT 总和从高到低排列；点击总 PT、Rate 或其他统计表头可切换排序。</p>
+      <p className="muted">近30场 PT、均顺、一位率、四位率只统计每位玩家自己的最近 30 个半庄；不足 30 场按实际场数，不补足、不折算。</p>
+      <p className="muted">总 PT 为全部历史半庄的 PT 总和，总场数为全部历史半庄数。生涯 Rate 仍从第一场起结合当时同桌 Rate 完整计算，不截断、不重置。个人主页保留完整历史。</p>
       <RateLeaderboard rows={rows} />
     </main>
   } catch {
